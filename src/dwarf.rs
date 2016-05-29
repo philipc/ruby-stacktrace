@@ -441,6 +441,7 @@ impl ::std::default::Default for Struct_Unnamed9 {
     fn default() -> Self { unsafe { ::std::mem::zeroed() } }
 }
 pub type Dwarf_Cmdline_Options = Struct_Unnamed9;
+#[link(name = "dwarf")]
 extern "C" {
     pub static mut dwarf_cmdline_options: Dwarf_Cmdline_Options;
 }
