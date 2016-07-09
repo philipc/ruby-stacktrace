@@ -262,6 +262,76 @@ fn main2() {
     }
 }
 
+fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32)
+{
+    let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
+/*
+    char *name = 0;
+    Dwarf_Error error = 0;
+    Dwarf_Half tag = 0;
+    const char *tagname = 0;
+    int res = dwarf_diename(print_me,&name,&error);
+    if(res == DW_DLV_ERROR) {
+        printf("Error in dwarf_diename , level %d \n",level);
+        exit(1);
+    }
+    if(res == DW_DLV_NO_ENTRY) {
+        return;
+    }
+    res = dwarf_tag(print_me,&tag,&error);
+    if(res != DW_DLV_OK) {
+        printf("Error in dwarf_tag , level %d \n",level);
+        exit(1);
+    }
+    res = dwarf_get_TAG_name(tag,&tagname);
+    if(res != DW_DLV_OK) {
+        printf("Error in dwarf_get_TAG_name , level %d \n",level);
+        exit(1);
+    }
+    printf("<%d> tag: %d %s  name: %s\n",level,tag,tagname,name);
+    dwarf_dealloc(dbg,name,DW_DLA_STRING);
+    */
+}
+
+
+fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32)
+{
+    let child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+    let cur_die = in_die;
+    let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
+    let mut res = DW_DLV_ERROR;
+    print_die_data(dbg,in_die,in_level);
+/*
+
+    for(;;) {
+        Dwarf_Die sib_die = 0;
+        res = dwarf_child(cur_die,&child,&error);
+        if(res == DW_DLV_ERROR) {
+            printf("Error in dwarf_child , level %d \n",in_level);
+            exit(1);
+        }
+        if(res == DW_DLV_OK) {
+            get_die_and_siblings(dbg,child,in_level+1);
+        }
+        /* res == DW_DLV_NO_ENTRY */
+        res = dwarf_siblingof(dbg,cur_die,&sib_die,&error);
+        if(res == DW_DLV_ERROR) {
+            printf("Error in dwarf_siblingof , level %d \n",in_level);
+            exit(1);
+        }
+        if(res == DW_DLV_NO_ENTRY) {
+            /* Done at this level. */
+            break;
+        }
+        /* res == DW_DLV_OK */
+        if(cur_die != in_die) {
+            dwarf_dealloc(dbg,cur_die,DW_DLA_DIE);
+        }
+        cur_die = sib_die;
+    }
+    return;
+    */
+}
 fn read_cu_list(dbg: Dwarf_Debug) {
     let mut cu_header_length: Dwarf_Unsigned  = 0;
     let mut version_stamp: Dwarf_Half  = 0;
