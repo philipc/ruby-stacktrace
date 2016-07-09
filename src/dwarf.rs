@@ -2,6 +2,7 @@ use std::os::unix::prelude::*;
 use std::fs::File;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
+use std::os::raw::c_uint;
 use dwarf_bindings::*;
 use std::ptr;
 use std::ffi::CString;
@@ -14,63 +15,53 @@ fn dwarf_error() -> *mut *mut Struct_Dwarf_Error_s {
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32)
 {
     let error_ptr = dwarf_error();
-    let tag: Dwarf_Half = 0;
-    let mut tagname = ptr::null::<c_char>() as *mut c_char;
+    let tag: c_uint = 0;
+    let tagname = ptr::null::<c_char>() as *const c_char;
     let mut name = ptr::null::<c_char>() as *mut c_char;
     unsafe {
         let res = dwarf_diename(print_me, &mut name as *mut *mut c_char,error_ptr);
         println!("{:?}", CString::from_raw(name));
-    }
-/*
-    char *name = 0;
-    const char *tagname = 0;
-    if(res == DW_DLV_ERROR) {
-        printf("Error in dwarf_diename , level %d \n",level);
-        exit(1);
-    }
     if(res == DW_DLV_NO_ENTRY) {
         return;
     }
-    res = dwarf_tag(print_me,&tag,&error);
-    if(res != DW_DLV_OK) {
-        printf("Error in dwarf_tag , level %d \n",level);
-        exit(1);
+    if(res == DW_DLV_ERROR) {
+        panic!("Error in dwarf_diename , level {} \n",level);
     }
-    res = dwarf_get_TAG_name(tag,&tagname);
+    res = dwarf_tag(print_me,&mut tag as *mut u16,error_ptr);
     if(res != DW_DLV_OK) {
-        printf("Error in dwarf_get_TAG_name , level %d \n",level);
-        exit(1);
+        panic!("Error in dwarf_tag , level {} \n",level);
     }
-    printf("<%d> tag: %d %s  name: %s\n",level,tag,tagname,name);
-    dwarf_dealloc(dbg,name,DW_DLA_STRING);
-    */
+    res = dwarf_get_TAG_name(tag,&mut tagname as *mut *const c_char);
+    if(res != DW_DLV_OK) {
+        panic!("Error in dwarf_get_TAG_name , level {} \n",level);
+    }
+    println!("{:?} tag: {:?} {:?}  name: {:?}\n",level,tag,tagname,name);
+    //dwarf_dealloc(dbg,name,DW_DLA_STRING);
+    }
 }
 
 
 fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32)
 {
-    let child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
-    let cur_die = in_die;
-    let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
+    let mut child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+    let mut cur_die = in_die;
+    let error = dwarf_error();
     let mut res = DW_DLV_ERROR;
     print_die_data(dbg,in_die,in_level);
-/*
 
-    for(;;) {
-        Dwarf_Die sib_die = 0;
-        res = dwarf_child(cur_die,&child,&error);
+    while true {
+        let mut sib_die = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+        unsafe {
+        res = dwarf_child(cur_die,&mut child as *mut Dwarf_Die, error);
         if(res == DW_DLV_ERROR) {
-            printf("Error in dwarf_child , level %d \n",in_level);
-            exit(1);
+            panic!("oh no {}",in_level);
         }
         if(res == DW_DLV_OK) {
             get_die_and_siblings(dbg,child,in_level+1);
         }
-        /* res == DW_DLV_NO_ENTRY */
-        res = dwarf_siblingof(dbg,cur_die,&sib_die,&error);
+        res = dwarf_siblingof(dbg,cur_die,&mut sib_die as *mut Dwarf_Die,error as *mut Dwarf_Error);
         if(res == DW_DLV_ERROR) {
-            printf("Error in dwarf_siblingof , level %d \n",in_level);
-            exit(1);
+            panic!("Error in dwarf_siblingof , level {} \n",in_level);
         }
         if(res == DW_DLV_NO_ENTRY) {
             /* Done at this level. */
@@ -78,9 +69,14 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32)
         }
         /* res == DW_DLV_OK */
         if(cur_die != in_die) {
-            dwarf_dealloc(dbg,cur_die,DW_DLA_DIE);
+            //dwarf_dealloc(dbg,cur_die,DW_DLA_DIE);
         }
         cur_die = sib_die;
+        }
+    }
+/*
+        /* res == DW_DLV_NO_ENTRY */
+
     }
     return;
     */
