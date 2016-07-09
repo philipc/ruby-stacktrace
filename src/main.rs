@@ -262,6 +262,48 @@ fn main2() {
     }
 }
 
+fn read_cu_list(dbg: Dwarf_Debug) {
+/*
+    Dwarf_Unsigned cu_header_length = 0;
+    Dwarf_Half version_stamp = 0;
+    Dwarf_Unsigned abbrev_offset = 0;
+    Dwarf_Half address_size = 0;
+    Dwarf_Unsigned next_cu_header = 0;
+    Dwarf_Error error;
+    int cu_number = 0;
+
+    for(;;++cu_number) {
+        Dwarf_Die no_die = 0;
+        Dwarf_Die cu_die = 0;
+        int res = DW_DLV_ERROR;
+        res = dwarf_next_cu_header(dbg,&cu_header_length,
+            &version_stamp, &abbrev_offset, &address_size,
+            &next_cu_header, &error);
+        if(res == DW_DLV_ERROR) {
+            printf("Error in dwarf_next_cu_header\n");
+            exit(1);
+        }
+        if(res == DW_DLV_NO_ENTRY) {
+            /* Done. */
+            return;
+        }
+        /* The CU will have a single sibling, a cu_die. */
+        res = dwarf_siblingof(dbg,no_die,&cu_die,&error);
+        if(res == DW_DLV_ERROR) {
+            printf("Error in dwarf_siblingof on CU die \n");
+            exit(1);
+        }
+        if(res == DW_DLV_NO_ENTRY) {
+            /* Impossible case. */
+            printf("no entry! in dwarf_siblingof on CU die \n");
+            exit(1);
+        }
+        get_die_and_siblings(dbg,cu_die,0);
+        dwarf_dealloc(dbg,cu_die,DW_DLA_DIE);
+    }
+*/
+}
+
 
 fn main() {
     let mut dbg: Dwarf_Debug = ptr::null::<Struct_Dwarf_Debug_s>() as Dwarf_Debug;
@@ -273,23 +315,21 @@ fn main() {
       Ok(file) => file,
     };
     let fd  = file.as_raw_fd() as ::std::os::raw::c_int;
-    unsafe {
-      let res = dwarf_init(
+    let res = unsafe {
+      dwarf_init(
         fd, 0, // 0 means read
         errhand,
         errarg,
         &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
         &mut error as *mut *mut Struct_Dwarf_Error_s);
-      println!("result: {}", res);
+    };
+    if res != DW_DLV_OK {
+        panic!("Giving up, cannot do DWARF processing\n");
     }
     /*
     int res = DW_DLV_ERROR;
     Dwarf_Error error;
     res = dwarf_init(fd,DW_DLC_READ,errhand,errarg, &dbg,&error);
-    if(res != DW_DLV_OK) {
-        printf("Giving up, cannot do DWARF processing\n");
-        exit(1);
-    }
 
     read_cu_list(dbg);
     res = dwarf_finish(dbg,&error);

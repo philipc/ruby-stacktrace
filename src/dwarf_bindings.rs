@@ -1510,6 +1510,9 @@ extern "C" {
     pub fn dwarf_record_cmdline_options(arg1: Dwarf_Cmdline_Options);
 }
 
+pub const DW_DLV_NO_ENTRY : ::std::os::raw::c_int  = -1;
+pub const DW_DLV_OK       : ::std::os::raw::c_int  = 0;
+pub const DW_DLV_ERROR    : ::std::os::raw::c_int  = 1;
 
 /***********************************
                constants 
@@ -1836,9 +1839,6 @@ pub const DW_FRAME_SAME_VAL                = 1035
 pub const DW_DLV_BADADDR      = (~(Dwarf_Addr)0)   
 pub const DW_DLV_NOCOUNT      = ((Dwarf_Signed)-1) 
 pub const DW_DLV_BADOFFSET    = (~(Dwarf_Off)0)    
-pub const DW_DLV_NO_ENTRY  = -1
-pub const DW_DLV_OK         = 0
-pub const DW_DLV_ERROR      = 1
 pub const DW_DLX_NO_EH_OFFSET          = (-1LL)
 pub const DW_DLX_EH_OFFSET_UNAVAILABLE   = (-2LL)
 pub const DWARF_DRD_BUFFER_VERSION  = 2
