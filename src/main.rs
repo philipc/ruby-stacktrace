@@ -263,15 +263,19 @@ fn main2() {
 }
 
 fn read_cu_list(dbg: Dwarf_Debug) {
-/*
     Dwarf_Unsigned cu_header_length = 0;
-    Dwarf_Half version_stamp = 0;
-    Dwarf_Unsigned abbrev_offset = 0;
-    Dwarf_Half address_size = 0;
-    Dwarf_Unsigned next_cu_header = 0;
-    Dwarf_Error error;
-    int cu_number = 0;
+    let version_stamp: Dwarf_Half  = 0;
+    let abbrev_offset: Dwarf_Unsigned  = 0;
+    let address_size: Dwarf_Half  = 0;
+    let next_cu_header: Dwarf_Unsigned  = 0;
+    let error: Dwarf_Error = 0;
 
+    let i = 0;
+    while true {
+      return;
+    }
+
+/*
     for(;;++cu_number) {
         Dwarf_Die no_die = 0;
         Dwarf_Die cu_die = 0;
