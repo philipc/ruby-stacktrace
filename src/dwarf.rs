@@ -19,13 +19,13 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     let mut name = ptr::null::<c_char>() as *mut c_char;
     unsafe {
         let mut res = dwarf_diename(print_me, &mut name as *mut *mut c_char, error_ptr);
-        println!("{:?}", CString::from_raw(name));
         if (res == DW_DLV_NO_ENTRY) {
             return;
         }
         if (res == DW_DLV_ERROR) {
             panic!("Error in dwarf_diename , level {} \n", level);
         }
+        println!("{:?}", CString::from_raw(name));
         res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_tag , level {} \n", level);
@@ -59,7 +59,6 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
                 panic!("oh no {}", in_level);
             }
             if (res == DW_DLV_OK) {
-                println!("die & siblings");
                 get_die_and_siblings(dbg, child, in_level + 1);
             }
             res = dwarf_siblingof(dbg,
