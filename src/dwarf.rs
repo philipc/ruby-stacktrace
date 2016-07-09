@@ -15,11 +15,11 @@ fn dwarf_error() -> *mut *mut Struct_Dwarf_Error_s {
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32)
 {
     let error_ptr = dwarf_error();
-    let tag: c_uint = 0;
-    let tagname = ptr::null::<c_char>() as *const c_char;
+    let mut tag: c_uint = 0;
+    let mut tagname = ptr::null::<c_char>() as *const c_char;
     let mut name = ptr::null::<c_char>() as *mut c_char;
     unsafe {
-        let res = dwarf_diename(print_me, &mut name as *mut *mut c_char,error_ptr);
+        let mut res = dwarf_diename(print_me, &mut name as *mut *mut c_char,error_ptr);
         println!("{:?}", CString::from_raw(name));
     if(res == DW_DLV_NO_ENTRY) {
         return;
@@ -27,7 +27,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32)
     if(res == DW_DLV_ERROR) {
         panic!("Error in dwarf_diename , level {} \n",level);
     }
-    res = dwarf_tag(print_me,&mut tag as *mut u16,error_ptr);
+    res = dwarf_tag(print_me,&mut tag as *mut u32 as *mut u16,error_ptr);
     if(res != DW_DLV_OK) {
         panic!("Error in dwarf_tag , level {} \n",level);
     }
