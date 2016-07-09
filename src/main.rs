@@ -268,30 +268,19 @@ fn main() {
     let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
     let errhand: Dwarf_Handler = None;
     let errarg: Dwarf_Ptr = ptr::null::<std::os::raw::c_void> as *mut std::os::raw::c_void;
-    let fd = match File::open("/home/bork/.rbenv/versions/1.9.3/bin/ruby") {
+    let fd = match File::open("/home/bork/.rbenv/versions/2.1.6/bin/ruby") {
       Err(why) => panic!("couldn't open file sryyyy"),
       Ok(file) => file.as_raw_fd() as ::std::os::raw::c_int,
     };
     unsafe {
-      dwarf_init(fd,0,errhand,errarg,
+      let res = dwarf_init(fd,0,errhand,errarg,
       &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
       &mut error as *mut *mut Struct_Dwarf_Error_s);
+      println!("result: {}", res);
     }
     /*
     int res = DW_DLV_ERROR;
     Dwarf_Error error;
-    Dwarf_Handler errhand = 0;
-    Dwarf_Ptr errarg = 0;
-
-    if(argc < 2) {
-        fd = 0; /* stdin */
-    } else {
-        filepath = argv[1];
-        fd = open(filepath,O_RDONLY);
-    }
-    if(fd < 0) {
-        printf("Failure attempting to open %s\n",filepath);
-    }
     res = dwarf_init(fd,DW_DLC_READ,errhand,errarg, &dbg,&error);
     if(res != DW_DLV_OK) {
         printf("Giving up, cannot do DWARF processing\n");
