@@ -59,13 +59,14 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
                 panic!("oh no {}", in_level);
             }
             if (res == DW_DLV_OK) {
+                println!("die & siblings");
                 get_die_and_siblings(dbg, child, in_level + 1);
             }
-            println!("sibling of");
             res = dwarf_siblingof(dbg,
                                   cur_die,
                                   &mut sib_die as *mut Dwarf_Die,
                                   error as *mut Dwarf_Error);
+            print_die_data(dbg, cur_die, in_level);
             if (res == DW_DLV_ERROR) {
                 panic!("Error in dwarf_siblingof , level {} \n", in_level);
             }
@@ -81,6 +82,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
         }
     }
 }
+
 fn read_cu_list(dbg: Dwarf_Debug) {
     let mut cu_header_length: Dwarf_Unsigned = 0;
     let mut version_stamp: Dwarf_Half = 0;
