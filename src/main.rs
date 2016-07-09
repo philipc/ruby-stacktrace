@@ -263,22 +263,39 @@ fn main2() {
 }
 
 fn read_cu_list(dbg: Dwarf_Debug) {
-    Dwarf_Unsigned cu_header_length = 0;
-    let version_stamp: Dwarf_Half  = 0;
-    let abbrev_offset: Dwarf_Unsigned  = 0;
-    let address_size: Dwarf_Half  = 0;
-    let next_cu_header: Dwarf_Unsigned  = 0;
-    let error: Dwarf_Error = 0;
+    let mut cu_header_length: Dwarf_Unsigned  = 0;
+    let mut version_stamp: Dwarf_Half  = 0;
+    let mut abbrev_offset: Dwarf_Unsigned  = 0;
+    let mut address_size: Dwarf_Half  = 0;
+    let mut next_cu_header: Dwarf_Unsigned  = 0;
+    let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
 
     let i = 0;
     while true {
-      return;
+      let no_die: Dwarf_Die  = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+      let cu_die: Dwarf_Die  = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+      unsafe {
+        let mut res = DW_DLV_ERROR;
+        res = dwarf_next_cu_header(dbg,
+            &mut cu_header_length,
+            &mut version_stamp as *mut Dwarf_Half,
+            &mut abbrev_offset as *mut Dwarf_Unsigned, 
+            &mut address_size as *mut Dwarf_Half,
+            &mut next_cu_header as *mut Dwarf_Unsigned,
+            &mut error as *mut *mut dwarf_bindings::Struct_Dwarf_Error_s);
+        if res == DW_DLV_ERROR {
+            panic!("Error in dwarf_next_cu_header\n");
+        }
+        if(res == DW_DLV_NO_ENTRY) {
+            println!("done");
+            return;
+        }
+        println!("{}, {}, {}", cu_header_length, address_size, next_cu_header)
+      }
     }
 
 /*
     for(;;++cu_number) {
-        Dwarf_Die no_die = 0;
-        Dwarf_Die cu_die = 0;
         int res = DW_DLV_ERROR;
         res = dwarf_next_cu_header(dbg,&cu_header_length,
             &version_stamp, &abbrev_offset, &address_size,
@@ -330,6 +347,7 @@ fn main() {
             panic!("Giving up, cannot do DWARF processing\n");
         }
     };
+    read_cu_list(dbg);
     /*
     int res = DW_DLV_ERROR;
     Dwarf_Error error;
