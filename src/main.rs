@@ -15,6 +15,7 @@ use std::process::Command;
 use std::process::Stdio;
 use regex::Regex;
 mod ruby_vm;
+mod dwarf;
 use std::collections::HashMap;
 use ruby_vm::{rb_iseq_t, rb_control_frame_t, rb_thread_t, Struct_RString, VALUE};
 
