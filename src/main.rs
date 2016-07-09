@@ -268,14 +268,18 @@ fn main() {
     let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
     let errhand: Dwarf_Handler = None;
     let errarg: Dwarf_Ptr = ptr::null::<std::os::raw::c_void> as *mut std::os::raw::c_void;
-    let fd = match File::open("/home/bork/.rbenv/versions/2.1.6/bin/ruby") {
+    let file = match File::open("/home/bork/.rbenv/versions/2.1.6/bin/ruby") {
       Err(why) => panic!("couldn't open file sryyyy"),
-      Ok(file) => file.as_raw_fd() as ::std::os::raw::c_int,
+      Ok(file) => file,
     };
+    let fd  = file.as_raw_fd() as ::std::os::raw::c_int;
     unsafe {
-      let res = dwarf_init(fd,0,errhand,errarg,
-      &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
-      &mut error as *mut *mut Struct_Dwarf_Error_s);
+      let res = dwarf_init(
+        fd, 0, // 0 means read
+        errhand,
+        errarg,
+        &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
+        &mut error as *mut *mut Struct_Dwarf_Error_s);
       println!("result: {}", res);
     }
     /*
