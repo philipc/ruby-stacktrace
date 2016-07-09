@@ -74,12 +74,6 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32)
         cur_die = sib_die;
         }
     }
-/*
-        /* res == DW_DLV_NO_ENTRY */
-
-    }
-    return;
-    */
 }
 fn read_cu_list(dbg: Dwarf_Debug) {
     let mut cu_header_length: Dwarf_Unsigned  = 0;
@@ -124,36 +118,6 @@ fn read_cu_list(dbg: Dwarf_Debug) {
         get_die_and_siblings(dbg,cu_die,0);
       }
     }
-
-/*
-    for(;;++cu_number) {
-        int res = DW_DLV_ERROR;
-        res = dwarf_next_cu_header(dbg,&cu_header_length,
-            &version_stamp, &abbrev_offset, &address_size,
-            &next_cu_header, &error);
-        if(res == DW_DLV_ERROR) {
-            printf("Error in dwarf_next_cu_header\n");
-            exit(1);
-        }
-        if(res == DW_DLV_NO_ENTRY) {
-            /* Done. */
-            return;
-        }
-        /* The CU will have a single sibling, a cu_die. */
-        res = dwarf_siblingof(dbg,no_die,&cu_die,&error);
-        if(res == DW_DLV_ERROR) {
-            printf("Error in dwarf_siblingof on CU die \n");
-            exit(1);
-        }
-        if(res == DW_DLV_NO_ENTRY) {
-            /* Impossible case. */
-            printf("no entry! in dwarf_siblingof on CU die \n");
-            exit(1);
-        }
-        get_die_and_siblings(dbg,cu_die,0);
-        dwarf_dealloc(dbg,cu_die,DW_DLA_DIE);
-    }
-*/
 }
 
 
@@ -181,11 +145,6 @@ pub fn do_everything() {
     };
     read_cu_list(dbg);
     /*
-    int res = DW_DLV_ERROR;
-    Dwarf_Error error;
-    res = dwarf_init(fd,DW_DLC_READ,errhand,errarg, &dbg,&error);
-
-    read_cu_list(dbg);
     res = dwarf_finish(dbg,&error);
     if(res != DW_DLV_OK) {
         printf("dwarf_finish failed!\n");
