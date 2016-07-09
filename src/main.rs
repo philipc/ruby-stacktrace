@@ -18,8 +18,8 @@ use std::process::Stdio;
 use std::ptr;
 use regex::Regex;
 mod ruby_vm;
-mod dwarf;
-use dwarf::*;
+mod dwarf_bindings;
+use dwarf_bindings::*;
 use std::collections::HashMap;
 use ruby_vm::{rb_iseq_t, rb_control_frame_t, rb_thread_t, Struct_RString, VALUE};
 
@@ -274,8 +274,8 @@ fn main() {
     };
     unsafe {
       dwarf_init(fd,0,errhand,errarg,
-      &mut dbg as *mut *mut dwarf::Struct_Dwarf_Debug_s,
-      &mut error as *mut *mut dwarf::Struct_Dwarf_Error_s);
+      &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
+      &mut error as *mut *mut Struct_Dwarf_Error_s);
     }
     /*
     int res = DW_DLV_ERROR;
