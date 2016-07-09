@@ -39,7 +39,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
                  tag,
                  tagname,
                  name);
-        // dwarf_dealloc(dbg,name,DW_DLA_STRING);
+        dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
     }
 }
 
@@ -61,6 +61,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             if (res == DW_DLV_OK) {
                 get_die_and_siblings(dbg, child, in_level + 1);
             }
+            println!("sibling of");
             res = dwarf_siblingof(dbg,
                                   cur_die,
                                   &mut sib_die as *mut Dwarf_Die,
@@ -74,7 +75,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             }
             // res == DW_DLV_OK
             if (cur_die != in_die) {
-                // dwarf_dealloc(dbg,cur_die,DW_DLA_DIE);
+                dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
             }
             cur_die = sib_die;
         }
