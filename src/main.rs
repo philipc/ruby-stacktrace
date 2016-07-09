@@ -38,15 +38,15 @@ fn copy_address_raw(addr: *const c_void, length: usize, pid: pid_t) -> Vec<u8> {
     };
     let local_iov = iovec {
         iov_base: copy.as_mut_ptr() as *mut c_void,
-        iov_len: length
+        iov_len: length,
     };
     let remote_iov = iovec {
         iov_base: addr as *mut c_void,
-        iov_len: length
+        iov_len: length,
     };
     unsafe {
         let result = process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
-        if result == -1  && !READ_EVER_SUCCEEDED {
+        if result == -1 && !READ_EVER_SUCCEEDED {
             println!("Failed to read from pid {}. Are you root?", pid);
             process::exit(1);
         }
@@ -55,45 +55,47 @@ fn copy_address_raw(addr: *const c_void, length: usize, pid: pid_t) -> Vec<u8> {
     copy
 }
 
-unsafe fn copy_address<T>(addr: * const T, pid: pid_t) -> T {
+unsafe fn copy_address<T>(addr: *const T, pid: pid_t) -> T {
     let mut value: T = mem::uninitialized();
     let local_iov = iovec {
-        iov_base: &mut value as *mut _ as * mut c_void,
-        iov_len: mem::size_of::<T>()
+        iov_base: &mut value as *mut _ as *mut c_void,
+        iov_len: mem::size_of::<T>(),
     };
     let remote_iov = iovec {
         iov_base: addr as *mut c_void,
-        iov_len: mem::size_of::<T>()
+        iov_len: mem::size_of::<T>(),
     };
     process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
     value
 }
 
-/* These three functions (get_cfps, get_iseq, and get_ruby_string) are the
- * core of how the program works. They're essentially a straight port of
- * this gdb script: 
- * https://gist.github.com/csfrancis/11376304/raw/7a0450d11e64e3bb7c982b7ad2778f3603188c0f/gdb_ruby_backtrace.py
- * except without using gdb!! 
- *
- * `get_iseq` is the simplest method  here -- it's just trying to run (cfp->iseq). But to do that
- * you need to dereference the `cfp` pointer, and that memory is actually in another process
- * so we call `copy_address` to copy the memory for that pointer out of
- * the other process. The other methods do the same thing
- * except that they're more copmlicated and sometimes call `copy_address_raw`.
- *
- * `get_cfps` corresponds to
- * (* const rb_thread t *(ruby_current_thread_address_location))->cfp
- * 
- * `get_ruby_string` is doing ((Struct RString *) address) and then 
- * trying one of two ways to get the actual Ruby string out depending
- * on how it's stored
- */
+// These three functions (get_cfps, get_iseq, and get_ruby_string) are the
+// core of how the program works. They're essentially a straight port of
+// this gdb script:
+// https://gist.github.com/csfrancis/11376304/raw/7a0450d11e64e3bb7c982b7ad2778f3603188c0f/gdb_ruby_backtrace.py
+// except without using gdb!!
+//
+// `get_iseq` is the simplest method  here -- it's just trying to run (cfp->iseq). But to do that
+// you need to dereference the `cfp` pointer, and that memory is actually in another process
+// so we call `copy_address` to copy the memory for that pointer out of
+// the other process. The other methods do the same thing
+// except that they're more copmlicated and sometimes call `copy_address_raw`.
+//
+// `get_cfps` corresponds to
+// (* const rb_thread t *(ruby_current_thread_address_location))->cfp
+//
+// `get_ruby_string` is doing ((Struct RString *) address) and then
+// trying one of two ways to get the actual Ruby string out depending
+// on how it's stored
+//
 
 fn get_ruby_string(address: VALUE, pid: pid_t) -> OsString {
     let vec = unsafe {
         let mut rstring = copy_address(address as *const Struct_RString, pid);
         if (rstring).basic.flags & (1 << 13) != 0 {
-            copy_address_raw((*rstring._as.heap()).ptr as *const c_void, (*rstring._as.heap()).len as usize, pid)
+            copy_address_raw((*rstring._as.heap()).ptr as *const c_void,
+                             (*rstring._as.heap()).len as usize,
+                             pid)
         } else {
             CStr::from_ptr((*rstring._as.ary()).as_ptr()).to_bytes().to_vec()
         }
@@ -102,36 +104,36 @@ fn get_ruby_string(address: VALUE, pid: pid_t) -> OsString {
 }
 
 fn get_iseq(cfp: &rb_control_frame_t, pid: pid_t) -> rb_iseq_t {
-    unsafe {
-        copy_address(cfp.iseq as *const rb_iseq_t, pid)
-    }
+    unsafe { copy_address(cfp.iseq as *const rb_iseq_t, pid) }
 }
 
-fn get_cfps<'a>(ruby_current_thread_address_location:u64, pid: pid_t) -> &'a[rb_control_frame_t] {
-    let ruby_current_thread_address = unsafe {
-        copy_address(ruby_current_thread_address_location as * const u64, pid)
-    };
-    let thread = unsafe {
-        copy_address(ruby_current_thread_address as *const rb_thread_t, pid)
-    };
+fn get_cfps<'a>(ruby_current_thread_address_location: u64, pid: pid_t) -> &'a [rb_control_frame_t] {
+    let ruby_current_thread_address =
+        unsafe { copy_address(ruby_current_thread_address_location as *const u64, pid) };
+    let thread = unsafe { copy_address(ruby_current_thread_address as *const rb_thread_t, pid) };
     unsafe {
-        let result = copy_address_raw(thread.cfp as *mut c_void, 100 * mem::size_of::<ruby_vm::rb_control_frame_t>(), pid);
+        let result = copy_address_raw(thread.cfp as *mut c_void,
+                                      100 * mem::size_of::<ruby_vm::rb_control_frame_t>(),
+                                      pid);
         slice::from_raw_parts(result.as_ptr() as *const ruby_vm::rb_control_frame_t, 100)
     }
 }
 
 
 fn get_nm_address(pid: pid_t) -> u64 {
-    let nm_command = Command::new("nm").arg(format!("/proc/{}/exe", pid))
+    let nm_command = Command::new("nm")
+        .arg(format!("/proc/{}/exe", pid))
         .stdout(Stdio::piped())
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .output()
-        .unwrap_or_else(|e| { panic!("failed to execute process: {}", e) });
+        .unwrap_or_else(|e| panic!("failed to execute process: {}", e));
     let nm_output = String::from_utf8(nm_command.stdout).unwrap();
     let re = Regex::new(r"(\w+) b ruby_current_thread").unwrap();
     let cap = re.captures(&nm_output).unwrap_or_else(|| {
-        println!("Error: Couldn't find current thread in Ruby process. This is probably because either this isn't a Ruby process or you have a Ruby version compiled with no symbols.");
+        println!("Error: Couldn't find current thread in Ruby process. This is probably because \
+                  either this isn't a Ruby process or you have a Ruby version compiled with no \
+                  symbols.");
         process::exit(1)
     });
     let address_str = cap.at(1).unwrap();
@@ -139,12 +141,13 @@ fn get_nm_address(pid: pid_t) -> u64 {
 }
 
 fn get_maps_address(pid: pid_t) -> u64 {
-    let cat_command = Command::new("cat").arg(format!("/proc/{}/maps", pid))
+    let cat_command = Command::new("cat")
+        .arg(format!("/proc/{}/maps", pid))
         .stdout(Stdio::piped())
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .output()
-        .unwrap_or_else(|e| { panic!("failed to execute process: {}", e) });
+        .unwrap_or_else(|e| panic!("failed to execute process: {}", e));
     let output = String::from_utf8(cat_command.stdout).unwrap();
     let re = Regex::new(r"\n(\w+).+?bin/ruby").unwrap();
     let cap = re.captures(&output).unwrap();
@@ -152,18 +155,20 @@ fn get_maps_address(pid: pid_t) -> u64 {
     u64::from_str_radix(address_str, 16).unwrap()
 }
 
-fn get_ruby_current_thread_address(pid: pid_t)->u64 {
-    /* Get the address of the `ruby_current_thread` global variable. It works
-     * by looking up the address in the Ruby binary's symbol table with `nm
-     * /proc/$pid/exe` and then finding out which address the Ruby binary is
-     * mapped to by looking at `/proc/$pid/maps`. If we add these two
-     * addresses together we get our answers! All this is Linux-specific but
-     * this program only works on Linux anyway because of process_vm_readv.
-     */
+fn get_ruby_current_thread_address(pid: pid_t) -> u64 {
+    // Get the address of the `ruby_current_thread` global variable. It works
+    // by looking up the address in the Ruby binary's symbol table with `nm
+    // /proc/$pid/exe` and then finding out which address the Ruby binary is
+    // mapped to by looking at `/proc/$pid/maps`. If we add these two
+    // addresses together we get our answers! All this is Linux-specific but
+    // this program only works on Linux anyway because of process_vm_readv.
+    //
     get_nm_address(pid) + get_maps_address(pid)
 }
 
-fn print_method_stats(method_stats: &HashMap<String, u32>, method_own_time_stats: &HashMap<String, u32>, n_terminal_lines: usize) {
+fn print_method_stats(method_stats: &HashMap<String, u32>,
+                      method_own_time_stats: &HashMap<String, u32>,
+                      n_terminal_lines: usize) {
     println!("[{}c", 27 as char); // clear the screen
     let mut count_vec: Vec<_> = method_own_time_stats.iter().collect();
     count_vec.sort_by(|a, b| b.1.cmp(a.1));
@@ -172,7 +177,10 @@ fn print_method_stats(method_stats: &HashMap<String, u32>, method_own_time_stats
     let total_sum: u32 = *method_stats.values().max().unwrap();
     for &(method, count) in count_vec.iter().take(n_terminal_lines - 1) {
         let total_count = method_stats.get(&method[..]).unwrap();
-        println!(" {:02.1}% | {:02.1}% | {}", 100.0 * (*count as f32) / (self_sum as f32), 100.0 * (*total_count as f32)  / (total_sum as f32), method);
+        println!(" {:02.1}% | {:02.1}% | {}",
+                 100.0 * (*count as f32) / (self_sum as f32),
+                 100.0 * (*total_count as f32) / (total_sum as f32),
+                 method);
     }
 }
 
@@ -187,7 +195,8 @@ fn get_stack_trace<'a>(ruby_current_thread_address_location: u64, pid: pid_t) ->
             if path.to_str().unwrap() == "" {
                 continue;
             }
-            let current_location = format!("{} : {}", label.to_string_lossy(), path.to_string_lossy()).to_string();
+            let current_location =
+                format!("{} : {}", label.to_string_lossy(), path.to_string_lossy()).to_string();
             trace.push(current_location);
         }
     }
@@ -203,17 +212,20 @@ fn print_stack_trace(trace: &Vec<String>) {
 
 fn parse_args() -> ArgMatches<'static> {
     App::new("ruby-stacktrace")
-      .version("0.1")
-      .about("Sampling profiler for Ruby programs")
-      .arg(Arg::with_name("COMMAND")
-           .help("Subcommand you want to run. Options: top, stackcollapse.\n          top prints a top-like output of what the Ruby process is doing right now\n          stackcollapse prints out output suitable for piping to stackcollapse.pl (https://github.com/brendangregg/FlameGraph)")
-           .required(true)
-           .index(1))
-      .arg(Arg::with_name("PID")
-           .help("PID of the Ruby process you want to profile")
-           .required(true)
-           .index(2))
-      .get_matches()
+        .version("0.1")
+        .about("Sampling profiler for Ruby programs")
+        .arg(Arg::with_name("COMMAND")
+            .help("Subcommand you want to run. Options: top, stackcollapse.\n          top \
+                   prints a top-like output of what the Ruby process is doing right now\n          \
+                   stackcollapse prints out output suitable for piping to stackcollapse.pl \
+                   (https://github.com/brendangregg/FlameGraph)")
+            .required(true)
+            .index(1))
+        .arg(Arg::with_name("PID")
+            .help("PID of the Ruby process you want to profile")
+            .required(true)
+            .index(2))
+        .get_matches()
 }
 
 
