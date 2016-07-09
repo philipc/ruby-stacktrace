@@ -315,17 +315,17 @@ fn main() {
       Ok(file) => file,
     };
     let fd  = file.as_raw_fd() as ::std::os::raw::c_int;
-    let res = unsafe {
-      dwarf_init(
+    unsafe {
+      let res = dwarf_init(
         fd, 0, // 0 means read
         errhand,
         errarg,
         &mut dbg as *mut *mut Struct_Dwarf_Debug_s,
         &mut error as *mut *mut Struct_Dwarf_Error_s);
+        if res != DW_DLV_OK {
+            panic!("Giving up, cannot do DWARF processing\n");
+        }
     };
-    if res != DW_DLV_OK {
-        panic!("Giving up, cannot do DWARF processing\n");
-    }
     /*
     int res = DW_DLV_ERROR;
     Dwarf_Error error;
