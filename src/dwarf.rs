@@ -58,49 +58,26 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     }
 }
 
-struct DwarfDie {
-    ptr: Dwarf_Die,
-}
-
-struct DwarfDebug {
-    ptr: Dwarf_Debug,
-}
-
-
-impl DwarfDebug {
-    fn blah(&self) {
-        println!("hiiii;");
-    }
-
-    fn siblingOf(&self, cur_die: Dwarf_Die) -> Option<Dwarf_Die> {
-        let mut sib_die = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
-        let error = dwarf_error();
-        unsafe {
-            let res = dwarf_siblingof(self.ptr,
-                cur_die,
-                &mut sib_die as *mut Dwarf_Die,
-                error as *mut Dwarf_Error);
-            if (res == DW_DLV_ERROR) {
-                panic!("Error in dwarf_siblingof");
-            }
-            if (res == DW_DLV_NO_ENTRY) {
-                return None;
-            }
+fn my_dwarf_sibling_of(dbg: Dwarf_Debug, cur_die: Dwarf_Die) -> Option<Dwarf_Die> {
+    let mut sib_die = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+    let error = dwarf_error();
+    unsafe {
+        let res = dwarf_siblingof(dbg,
+            cur_die,
+            &mut sib_die as *mut Dwarf_Die,
+            error as *mut Dwarf_Error);
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_siblingof");
         }
-        Some(sib_die)
+        if (res == DW_DLV_NO_ENTRY) {
+            return None;
+        }
     }
-
-}
-
-impl DwarfDie {
-    fn blah(&self) {
-        println!("hiiii;");
-    }
+    Some(sib_die)
 }
 
 fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     let mut child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
-    let dbg2 = DwarfDebug {ptr: dbg};
     let mut cur_die = in_die;
     let error = dwarf_error();
     let mut res = DW_DLV_ERROR;
@@ -117,7 +94,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
                 get_die_and_siblings(dbg, child, in_level + 1);
             }
             print_die_data(dbg, cur_die, in_level);
-            match dbg2.siblingOf(cur_die) {
+            match my_dwarf_sibling_of(dbg, cur_die) {
                 Some(v) => { sib_die = v }
                 None => break
             }
@@ -131,7 +108,6 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
 }
 
 fn read_cu_list(dbg: Dwarf_Debug) {
-    let dbg2 = DwarfDebug {ptr: dbg};
     let mut cu_header_length: Dwarf_Unsigned = 0;
     let mut version_stamp: Dwarf_Half = 0;
     let mut abbrev_offset: Dwarf_Unsigned = 0;
@@ -160,7 +136,7 @@ fn read_cu_list(dbg: Dwarf_Debug) {
                 return;
             }
             println!("{}, {}, {}", cu_header_length, address_size, next_cu_header);
-            let cu_die = match dbg2.siblingOf(no_die) {
+            let cu_die = match my_dwarf_sibling_of(dbg, no_die) {
                 Some(v) => v,
                 None => panic!("no entry! in dwarf_siblingof on CU die \n"),
             };
