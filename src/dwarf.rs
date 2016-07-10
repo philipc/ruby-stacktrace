@@ -6,6 +6,7 @@ use std::os::raw::c_uint;
 use dwarf_bindings::*;
 use std::ptr;
 use std::ffi::CString;
+use std::ffi::CStr;
 
 fn dwarf_error() -> *mut *mut Struct_Dwarf_Error_s {
     let mut x: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
@@ -17,6 +18,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     let mut tag: c_uint = 0;
     let mut tagname = ptr::null::<c_char>() as *const c_char;
     let mut name = ptr::null::<c_char>() as *mut c_char;
+    let mut old_name = name;
     unsafe {
         let mut res = dwarf_diename(print_me, &mut name as *mut *mut c_char, error_ptr);
         if (res == DW_DLV_NO_ENTRY) {
@@ -25,7 +27,9 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         if (res == DW_DLV_ERROR) {
             panic!("Error in dwarf_diename , level {} \n", level);
         }
-        println!("{:?}", CString::from_raw(name));
+        println!("{:?}", CStr::from_ptr(name));
+        println!("{:?}, {:?}", print_me, tag);
+        // this line below is segfaulting
         res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_tag , level {} \n", level);
@@ -39,7 +43,8 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
                  tag,
                  tagname,
                  name);
-        dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
+        // dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
+        name = old_name;
     }
 }
 
@@ -75,7 +80,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             }
             // res == DW_DLV_OK
             if (cur_die != in_die) {
-                dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
+                // dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
             }
             cur_die = sib_die;
         }
