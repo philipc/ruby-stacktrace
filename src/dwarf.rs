@@ -25,7 +25,6 @@ fn indent(level: u32) {
 }
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
-    let error_ptr = dwarf_error();
     unsafe {
         let name = match my_dwarf_diename(print_me) {
             Some(name) => CStr::from_ptr(name),
@@ -41,7 +40,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
                  tag,
                  tagname,
                  name);
-        // dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
+        dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
     }
 }
 
