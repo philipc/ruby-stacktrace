@@ -26,17 +26,14 @@ fn indent(level: u32) {
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     let error_ptr = dwarf_error();
-    let mut tag: c_uint = 0;
     let mut tagname = ptr::null::<c_char>() as *const c_char;
     unsafe {
         let name = match my_dwarf_diename(print_me) {
             Some(name) => CStr::from_ptr(name),
             None => return,
         };
-        let mut res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
-        if (res != DW_DLV_OK) {
-            panic!("Error in dwarf_tag , level {} \n", level);
-        }
+
+        let tag = my_dwarf_tag(print_me);
         res = dwarf_get_TAG_name(tag, &mut tagname as *mut *const c_char);
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_get_TAG_name , level {} \n", level);
@@ -50,6 +47,17 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
                  name);
         // dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
     }
+}
+
+fn my_dwarf_tag(die: Dwarf_Die) -> Dwarf_Half {
+    let mut tag: c_uint = 0;
+    unsafe {
+        let res = dwarf_tag(die, &mut tag as *mut u32 as *mut u16, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_tag , level {} \n", level);
+        }
+    }
+    tag
 }
 
 fn my_dwarf_diename(die: Dwarf_Die) -> Option<*mut c_char> {
