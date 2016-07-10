@@ -94,6 +94,17 @@ fn my_dwarf_child(die: Dwarf_Die) -> Option<Dwarf_Die> {
     Some(child)
 }
 
+fn my_dwarf_bytesize(die: Dwarf_Die) -> Dwarf_Unsigned {
+    let mut size: Dwarf_Unsigned = 0;
+    unsafe {
+        let res = dwarf_bytesize(die, &mut size as *mut Dwarf_Unsigned, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_bytesize");
+        }
+    }
+    size
+}
+
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
@@ -102,15 +113,15 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
             None => return,
         };
 
+        let size = my_dwarf_bytesize(print_me);
         let tag = my_dwarf_tag(print_me);
-        let tagname = my_dwarf_get_TAG_name(tag);
+        let tagname = CStr::from_ptr(my_dwarf_get_TAG_name(tag));
         indent(level);
-        println!("{:?} {:?} tag: {:?} {:?}  name: {:?}",
-                 level,
+        println!("{:?} | size: {} | tag: {:?} {:?}",
                  name,
+                 size,
                  tag,
-                 tagname,
-                 name);
+                 tagname);
         dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
     }
 }
