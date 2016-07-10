@@ -131,6 +131,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
 }
 
 fn read_cu_list(dbg: Dwarf_Debug) {
+    let dbg2 = DwarfDebug {ptr: dbg};
     let mut cu_header_length: Dwarf_Unsigned = 0;
     let mut version_stamp: Dwarf_Half = 0;
     let mut abbrev_offset: Dwarf_Unsigned = 0;
@@ -159,17 +160,10 @@ fn read_cu_list(dbg: Dwarf_Debug) {
                 return;
             }
             println!("{}, {}, {}", cu_header_length, address_size, next_cu_header);
-            res = dwarf_siblingof(dbg,
-                                  no_die,
-                                  &mut cu_die as *mut Dwarf_Die,
-                                  &mut error as *mut *mut Struct_Dwarf_Error_s);
-            if (res == DW_DLV_ERROR) {
-                panic!("Error in dwarf_siblingof on CU die \n");
-            }
-            if (res == DW_DLV_NO_ENTRY) {
-                // Impossible case.
-                panic!("no entry! in dwarf_siblingof on CU die \n");
-            }
+            let cu_die = match dbg2.siblingOf(no_die) {
+                Some(v) => v,
+                None => panic!("no entry! in dwarf_siblingof on CU die \n"),
+            };
             get_die_and_siblings(dbg, cu_die, 0);
         }
     }
