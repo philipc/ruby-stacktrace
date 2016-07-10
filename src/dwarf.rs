@@ -24,26 +24,6 @@ fn indent(level: u32) {
     }
 }
 
-fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
-    unsafe {
-        let name = match my_dwarf_diename(print_me) {
-            Some(name) => CStr::from_ptr(name),
-            None => return,
-        };
-
-        let tag = my_dwarf_tag(print_me);
-        let tagname = my_dwarf_get_TAG_name(tag);
-        indent(level);
-        println!("{:?} {:?} tag: {:?} {:?}  name: {:?}",
-                 level,
-                 name,
-                 tag,
-                 tagname,
-                 name);
-        dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
-    }
-}
-
 fn my_dwarf_get_TAG_name(tag: c_uint) -> *const c_char {
     let mut tagname = ptr::null::<c_char>() as *const c_char;
     unsafe {
@@ -114,6 +94,27 @@ fn my_dwarf_child(die: Dwarf_Die) -> Option<Dwarf_Die> {
     Some(child)
 }
 
+
+fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
+    unsafe {
+        let name = match my_dwarf_diename(print_me) {
+            Some(name) => CStr::from_ptr(name),
+            None => return,
+        };
+
+        let tag = my_dwarf_tag(print_me);
+        let tagname = my_dwarf_get_TAG_name(tag);
+        indent(level);
+        println!("{:?} {:?} tag: {:?} {:?}  name: {:?}",
+                 level,
+                 name,
+                 tag,
+                 tagname,
+                 name);
+        dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
+    }
+}
+
 fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     let mut cur_die = in_die;
     let error = dwarf_error();
@@ -134,7 +135,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             }
             // res == DW_DLV_OK
             if (cur_die != in_die) {
-                // dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
+                dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
             }
             cur_die = sib_die;
         }
