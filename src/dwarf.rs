@@ -13,6 +13,15 @@ fn dwarf_error() -> *mut *mut Struct_Dwarf_Error_s {
     &mut x as *mut *mut Struct_Dwarf_Error_s
 }
 
+fn indent(level: u32) {
+    let mut i = 0;
+    while (i < level) {
+        i = i + 1;
+        print!("  ");
+
+    }
+}
+
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     let error_ptr = dwarf_error();
     let mut tag: c_uint = 0;
@@ -27,8 +36,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         if (res == DW_DLV_ERROR) {
             panic!("Error in dwarf_diename , level {} \n", level);
         }
-        println!("{:?}", CStr::from_ptr(name));
-        println!("{:?}, {:?}", print_me, tag);
+        let name2 = CStr::from_ptr(name);
         // this line below is segfaulting
         res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
         if (res != DW_DLV_OK) {
@@ -38,8 +46,10 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_get_TAG_name , level {} \n", level);
         }
-        println!("{:?} tag: {:?} {:?}  name: {:?}\n",
+        indent(level);
+        println!("{:?} {:?} tag: {:?} {:?}  name: {:?}",
                  level,
+                 name2,
                  tag,
                  tagname,
                  name);
