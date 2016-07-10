@@ -58,9 +58,49 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     }
 }
 
+struct DwarfDie {
+    ptr: Dwarf_Die,
+}
+
+struct DwarfDebug {
+    ptr: Dwarf_Debug,
+}
+
+
+impl DwarfDebug {
+    fn blah(&self) {
+        println!("hiiii;");
+    }
+
+    fn siblingOf(&self, cur_die: Dwarf_Die) -> Option<Dwarf_Die> {
+        let mut sib_die = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+        let error = dwarf_error();
+        unsafe {
+            let res = dwarf_siblingof(self.ptr,
+                cur_die,
+                &mut sib_die as *mut Dwarf_Die,
+                error as *mut Dwarf_Error);
+            if (res == DW_DLV_ERROR) {
+                panic!("Error in dwarf_siblingof");
+            }
+            if (res == DW_DLV_NO_ENTRY) {
+                return None;
+            }
+        }
+        Some(sib_die)
+    }
+
+}
+
+impl DwarfDie {
+    fn blah(&self) {
+        println!("hiiii;");
+    }
+}
 
 fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     let mut child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+    let dbg2 = DwarfDebug {ptr: dbg};
     let mut cur_die = in_die;
     let error = dwarf_error();
     let mut res = DW_DLV_ERROR;
@@ -76,17 +116,10 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             if (res == DW_DLV_OK) {
                 get_die_and_siblings(dbg, child, in_level + 1);
             }
-            res = dwarf_siblingof(dbg,
-                                  cur_die,
-                                  &mut sib_die as *mut Dwarf_Die,
-                                  error as *mut Dwarf_Error);
             print_die_data(dbg, cur_die, in_level);
-            if (res == DW_DLV_ERROR) {
-                panic!("Error in dwarf_siblingof , level {} \n", in_level);
-            }
-            if (res == DW_DLV_NO_ENTRY) {
-                // Done at this level.
-                break;
+            match dbg2.siblingOf(cur_die) {
+                Some(v) => { sib_die = v }
+                None => break
             }
             // res == DW_DLV_OK
             if (cur_die != in_die) {
