@@ -1,3 +1,5 @@
+#![warn(unused_parens)]
+
 use std::os::unix::prelude::*;
 use std::fs::File;
 use std::os::raw::c_char;
@@ -26,19 +28,12 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     let error_ptr = dwarf_error();
     let mut tag: c_uint = 0;
     let mut tagname = ptr::null::<c_char>() as *const c_char;
-    let mut name = ptr::null::<c_char>() as *mut c_char;
-    let mut old_name = name;
     unsafe {
-        let mut res = dwarf_diename(print_me, &mut name as *mut *mut c_char, error_ptr);
-        if (res == DW_DLV_NO_ENTRY) {
-            return;
-        }
-        if (res == DW_DLV_ERROR) {
-            panic!("Error in dwarf_diename , level {} \n", level);
-        }
-        let name2 = CStr::from_ptr(name);
-        // this line below is segfaulting
-        res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
+        let name = match my_dwarf_diename(print_me) {
+            Some(name) => CStr::from_ptr(name),
+            None => return,
+        };
+        let mut res = dwarf_tag(print_me, &mut tag as *mut u32 as *mut u16, error_ptr);
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_tag , level {} \n", level);
         }
@@ -49,13 +44,27 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         indent(level);
         println!("{:?} {:?} tag: {:?} {:?}  name: {:?}",
                  level,
-                 name2,
+                 name,
                  tag,
                  tagname,
                  name);
         // dwarf_dealloc(dbg,name as *mut c_void,DW_DLA_STRING);
-        name = old_name;
     }
+}
+
+fn my_dwarf_diename(die: Dwarf_Die) -> Option<*mut c_char> {
+    let mut name = ptr::null::<c_char>() as *mut c_char;
+    unsafe {
+        let res = dwarf_diename(die, &mut name as *mut *mut c_char, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_diename");
+        }
+        if (res == DW_DLV_NO_ENTRY) {
+            return None;
+        }
+        return Some(name)
+    }
+    
 }
 
 fn my_dwarf_sibling_of(dbg: Dwarf_Debug, cur_die: Dwarf_Die) -> Option<Dwarf_Die> {
