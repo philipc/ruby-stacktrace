@@ -76,8 +76,22 @@ fn my_dwarf_sibling_of(dbg: Dwarf_Debug, cur_die: Dwarf_Die) -> Option<Dwarf_Die
     Some(sib_die)
 }
 
-fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
+fn my_dwarf_child(die: Dwarf_Die) -> Option<Dwarf_Die> {
     let mut child = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
+    let error = dwarf_error();
+    unsafe {
+        let res = dwarf_child(die, &mut child as *mut Dwarf_Die, error);
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_child");
+        }
+        if (res == DW_DLV_NO_ENTRY) {
+            return None;
+        }
+    }
+    Some(child)
+}
+
+fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     let mut cur_die = in_die;
     let error = dwarf_error();
     let mut res = DW_DLV_ERROR;
@@ -86,12 +100,9 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     while true {
         let mut sib_die = ptr::null::<Struct_Dwarf_Die_s>() as Dwarf_Die;
         unsafe {
-            res = dwarf_child(cur_die, &mut child as *mut Dwarf_Die, error);
-            if (res == DW_DLV_ERROR) {
-                panic!("oh no {}", in_level);
-            }
-            if (res == DW_DLV_OK) {
-                get_die_and_siblings(dbg, child, in_level + 1);
+            match my_dwarf_child(cur_die) {
+                Some(child) => get_die_and_siblings(dbg, child, in_level + 1),
+                None => {},
             }
             print_die_data(dbg, cur_die, in_level);
             match my_dwarf_sibling_of(dbg, cur_die) {
