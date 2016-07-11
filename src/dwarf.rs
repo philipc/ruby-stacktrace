@@ -300,6 +300,30 @@ fn my_dwarf_formsdata(arg: Dwarf_Attribute) -> Dwarf_Signed {
     ret
 }
 
+fn my_dwarf_die_CU_offset(arg: Dwarf_Die) -> Dwarf_Off {
+    let mut ret : Dwarf_Off = 0;
+    unsafe {
+        let res = dwarf_die_CU_offset(arg, &mut ret as *mut Dwarf_Off, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_die_CU_offset");
+        }
+    }
+    ret
+}
+
+
+fn my_dwarf_CU_dieoffset_given_die(arg: Dwarf_Die) -> Dwarf_Off {
+    let mut ret : Dwarf_Off = 0;
+    unsafe {
+        let res = dwarf_CU_dieoffset_given_die(arg, &mut ret as *mut Dwarf_Off, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_CU_dieoffset_given_die");
+        }
+    }
+    ret
+}
+
+
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
         let name = match my_dwarf_diename(print_me) {
@@ -308,10 +332,12 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         };
 
         let size = my_dwarf_bytesize(print_me);
+        let offset = my_dwarf_die_CU_offset(print_me);
         let tag = my_dwarf_tag(print_me);
         let tagname = CStr::from_ptr(my_dwarf_get_TAG_name(tag));
         indent(level);
-        println!("{:?} | size: {} | tag: {:?} {:?}",
+        println!("{}: {:?} | size: {} | tag: {:?} {:?}",
+                    offset,
                  name,
                  size,
                  tag,
