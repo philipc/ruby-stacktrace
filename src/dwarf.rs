@@ -309,15 +309,6 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
 
         let size = my_dwarf_bytesize(print_me);
         let tag = my_dwarf_tag(print_me);
-        let attributes = my_dwarf_attrlist(print_me);
-        for attr in attributes {
-            // println!("what form: {:?}", CStr::from_ptr(my_dwarf_get_FORM_name(my_dwarf_whatform(attr) as c_uint)));
-            println!("attribute: {:?}", CStr::from_ptr(my_dwarf_get_AT_name(my_dwarf_whatattr(attr) as c_uint)));
-            match my_dwarf_formstring(attr) {
-                Some(s) => println!("attr: {:?}", CStr::from_ptr(s)),
-                None => {},
-            };
-        }
         let tagname = CStr::from_ptr(my_dwarf_get_TAG_name(tag));
         indent(level);
         println!("{:?} | size: {} | tag: {:?} {:?}",
@@ -325,6 +316,24 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
                  size,
                  tag,
                  tagname);
+
+        let attributes = my_dwarf_attrlist(print_me);
+        for attr in attributes {
+            //println!("what form: {:?}", CStr::from_ptr(my_dwarf_get_FORM_name(my_dwarf_whatform(attr) as c_uint)));
+            let whatattr = my_dwarf_whatattr(attr) as c_uint;
+            let at_name = CStr::from_ptr(my_dwarf_get_AT_name(whatattr));
+            if at_name.to_str().unwrap() == "DW_AT_type" {
+                // this is the identifier for the type of the thing!!!!!!
+                println!("    ref: {}", my_dwarf_formref(attr));
+            }
+            /*
+            println!("attribute: {:?} {:?}", whatattr, at_name);
+            match my_dwarf_formstring(attr) {
+                Some(s) => println!("attr: {:?}", CStr::from_ptr(s)),
+                None => {},
+            };
+            */
+        }
         dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
     }
 }
