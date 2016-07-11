@@ -25,6 +25,16 @@ fn indent(level: u32) {
     }
 }
 
+fn my_dwarf_get_FORM_name(tag: c_uint) -> *const c_char {
+    let mut tagname = ptr::null::<c_char>() as *const c_char;
+    unsafe {
+        let res = dwarf_get_FORM_name(tag as u32, &mut tagname as *mut *const c_char);
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_get_FORM_name\n");
+        }
+    }
+    tagname
+}
 fn my_dwarf_get_TAG_name(tag: c_uint) -> *const c_char {
     let mut tagname = ptr::null::<c_char>() as *const c_char;
     unsafe {
@@ -291,6 +301,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         let tag = my_dwarf_tag(print_me);
         let attributes = my_dwarf_attrlist(print_me);
         for attr in attributes {
+            println!("what form: {:?}", CStr::from_ptr(my_dwarf_get_FORM_name(my_dwarf_whatform(attr) as c_uint)));
             match my_dwarf_formstring(attr) {
                 Some(s) => println!("attr: {:?}", CStr::from_ptr(s)),
                 None => {},
