@@ -5,6 +5,7 @@ use std::fs::File;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
 use std::os::raw::c_uint;
+use std::slice::from_raw_parts;
 use dwarf_bindings::*;
 use std::ptr;
 use std::ffi::CString;
@@ -36,17 +37,20 @@ fn my_dwarf_get_TAG_name(tag: c_uint) -> *const c_char {
 }
 
 
-fn my_dwarf_attrlist(die: Dwarf_Die) -> *mut Dwarf_Attribute {
+fn my_dwarf_attrlist(die: Dwarf_Die) -> Vec<Dwarf_Attribute> {
+    let mut vec: Vec<Dwarf_Attribute> = Vec::new();
     let mut attrlist = ptr::null::<Dwarf_Attribute>() as *mut Dwarf_Attribute;
     let mut length: Dwarf_Signed = 0;
     unsafe {
         let res = dwarf_attrlist(die, &mut attrlist as *mut *mut Dwarf_Attribute,
-        &mut length as *mut Dwarf_Signed, dwarf_error());
+            &mut length as *mut Dwarf_Signed, dwarf_error());
+        let slice = from_raw_parts(attrlist, length as usize);
+        vec.extend_from_slice(slice);
         if (res != DW_DLV_OK) {
             panic!("Error in dwarf_attrlist");
         }
     }
-    attrlist
+    vec
 }
 
 fn my_dwarf_tag(die: Dwarf_Die) -> c_uint {
@@ -161,6 +165,20 @@ fn my_dwarf_srclang(die: Dwarf_Die) -> Dwarf_Unsigned {
     size
 }
 
+fn my_dwarf_formstring(attr: Dwarf_Attribute) -> Option<*mut c_char> {
+    let mut name = ptr::null::<c_char>() as *mut c_char;
+    unsafe {
+        let res = dwarf_formstring(attr, &mut name as *mut *mut c_char, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            return None;
+            panic!("Error in formstring: {}", res);
+        }
+        if res == DW_DLV_NO_ENTRY {
+            return None;
+        }
+    }
+    Some(name)
+}
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
@@ -171,6 +189,13 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
 
         let size = my_dwarf_bytesize(print_me);
         let tag = my_dwarf_tag(print_me);
+        let attributes = my_dwarf_attrlist(print_me);
+        for attr in attributes {
+            match my_dwarf_formstring(attr) {
+                Some(s) => println!("attr: {:?}", CStr::from_ptr(s)),
+                None => {},
+            };
+        }
         let tagname = CStr::from_ptr(my_dwarf_get_TAG_name(tag));
         indent(level);
         println!("{:?} | size: {} | tag: {:?} {:?}",
