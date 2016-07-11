@@ -351,8 +351,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
             if at_name.to_str().unwrap() == "DW_AT_type" {
                 // this is the identifier for the type of the thing!!!!!!
                 println!("    ref: {}", my_dwarf_formref(attr));
-            }
-            /*
+            } /*
             println!("attribute: {:?} {:?}", whatattr, at_name);
             match my_dwarf_formstring(attr) {
                 Some(s) => println!("attr: {:?}", CStr::from_ptr(s)),
@@ -385,6 +384,52 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
             }
             cur_die = sib_die;
         }
+    }
+}
+
+fn my_dwarf_siblings(dbg: Dwarf_Debug, node: Dwarf_Die) -> Vec<Dwarf_Die> {
+    let mut siblings: Vec<Dwarf_Die> = Vec::new();
+    let mut cur_die = node;
+    siblings.push(node);
+    while true {
+        match my_dwarf_sibling_of(dbg, cur_die) {
+            Some(v) => { 
+                siblings.push(v);
+                cur_die = v;
+            }
+            None => break,
+        }
+
+    }
+    siblings
+}
+
+#[derive(Debug)]
+struct Entry<'a> {
+    children: Vec<Entry<'a>>,
+    type_id: usize,
+    size: usize,
+    name: &'a str,
+}
+
+fn index_dwarf_data(dbg: Dwarf_Debug, die: Dwarf_Die) -> Entry<'static> {
+    let mut children: Vec<Entry> = Vec::new();
+    match my_dwarf_child(die) {
+        Some(child) => {
+            for node in my_dwarf_siblings(dbg, child) {
+                let x = index_dwarf_data(dbg, node);
+                children.push(x);
+            }
+        }
+        None => {},
+    }
+    let tag = my_dwarf_tag(die);
+    let tagname = unsafe {CStr::from_ptr(my_dwarf_get_TAG_name(tag)).to_str().unwrap()};
+    Entry {
+        children: children,
+        type_id: 0,
+        size: my_dwarf_bytesize(die) as usize,
+        name: tagname,
     }
 }
 
@@ -421,7 +466,9 @@ fn read_cu_list(dbg: Dwarf_Debug) {
                 Some(v) => v,
                 None => panic!("no entry! in dwarf_siblingof on CU die \n"),
             };
+            
             get_die_and_siblings(dbg, cu_die, 0);
+            println!("{:?}", index_dwarf_data(dbg, cu_die))
         }
     }
 }
