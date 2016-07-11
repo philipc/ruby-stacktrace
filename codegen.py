@@ -2,9 +2,16 @@ import sys
 
 function, in_type, out_type =  sys.argv[1:]
 
-function = "dwarf_" + function
+primitive_types = ['Dwarf_Bool',
+'Dwarf_Off',
+'Dwarf_Unsigned',
+'Dwarf_Half',
+'Dwarf_Small',
+'Dwarf_Signed',
+'Dwarf_Addr',
+'Dwarf_Ptr']
 
-if 'Bool' in out_type or 'Unsigned' in out_type or 'Half' in out_type or 'Signed' in out_type:
+if out_type in primitive_types:
     out_type_real = ": {t} = 0".format(t=out_type)
 else:
     out_type_real = "= ptr::null::<Struct_{t}_s>() as {t}".format(t=out_type)
@@ -19,8 +26,5 @@ fn my_%s(arg: %s) -> %s {
         }
     }
     ret
-}
-
-
-""" % (function, in_type, out_type, out_type_real, function, out_type, function)
+}""" % (function, in_type, out_type, out_type_real, function, out_type, function)
 

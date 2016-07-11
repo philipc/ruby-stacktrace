@@ -192,6 +192,93 @@ fn my_dwarf_whatform(arg: Dwarf_Attribute) -> Dwarf_Half {
     ret
 }
 
+fn my_dwarf_whatform_direct(arg: Dwarf_Attribute) -> Dwarf_Half {
+    let mut ret : Dwarf_Half = 0;
+    unsafe {
+        let res = dwarf_whatform_direct(arg, &mut ret as *mut Dwarf_Half, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_whatform_direct");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_whatattr(arg: Dwarf_Attribute) -> Dwarf_Half {
+    let mut ret : Dwarf_Half = 0;
+    unsafe {
+        let res = dwarf_whatattr(arg, &mut ret as *mut Dwarf_Half, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_whatattr");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_formref(arg: Dwarf_Attribute) -> Dwarf_Off {
+    let mut ret : Dwarf_Off = 0;
+    unsafe {
+        let res = dwarf_formref(arg, &mut ret as *mut Dwarf_Off, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_formref");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_global_formref(arg: Dwarf_Attribute) -> Dwarf_Off {
+    let mut ret : Dwarf_Off = 0;
+    unsafe {
+        let res = dwarf_global_formref(arg, &mut ret as *mut Dwarf_Off, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_global_formref");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_formaddr(arg: Dwarf_Attribute) -> Dwarf_Addr {
+    let mut ret : Dwarf_Addr = 0;
+    unsafe {
+        let res = dwarf_formaddr(arg, &mut ret as *mut Dwarf_Addr, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_formaddr");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_formflag(arg: Dwarf_Attribute) -> Dwarf_Bool {
+    let mut ret : Dwarf_Bool = 0;
+    unsafe {
+        let res = dwarf_formflag(arg, &mut ret as *mut Dwarf_Bool, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_formflag");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_formudata(arg: Dwarf_Attribute) -> Dwarf_Unsigned {
+    let mut ret : Dwarf_Unsigned = 0;
+    unsafe {
+        let res = dwarf_formudata(arg, &mut ret as *mut Dwarf_Unsigned, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_formudata");
+        }
+    }
+    ret
+}
+
+fn my_dwarf_formsdata(arg: Dwarf_Attribute) -> Dwarf_Signed {
+    let mut ret : Dwarf_Signed = 0;
+    unsafe {
+        let res = dwarf_formsdata(arg, &mut ret as *mut Dwarf_Signed, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_formsdata");
+        }
+    }
+    ret
+}
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
