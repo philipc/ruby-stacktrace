@@ -35,6 +35,20 @@ fn my_dwarf_get_TAG_name(tag: c_uint) -> *const c_char {
     tagname
 }
 
+
+fn my_dwarf_attrlist(die: Dwarf_Die) -> *mut Dwarf_Attribute {
+    let mut attrlist = ptr::null::<Dwarf_Attribute>() as *mut Dwarf_Attribute;
+    let mut length: Dwarf_Signed = 0;
+    unsafe {
+        let res = dwarf_attrlist(die, &mut attrlist as *mut *mut Dwarf_Attribute,
+        &mut length as *mut Dwarf_Signed, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_attrlist");
+        }
+    }
+    attrlist
+}
+
 fn my_dwarf_tag(die: Dwarf_Die) -> c_uint {
     let mut tag: Dwarf_Half = 0;
     unsafe {
@@ -105,6 +119,48 @@ fn my_dwarf_bytesize(die: Dwarf_Die) -> Dwarf_Unsigned {
     size
 }
 
+fn my_dwarf_isbitfield(die: Dwarf_Die) -> Dwarf_Bool {
+    let mut size: Dwarf_Bool = 0;
+    unsafe {
+        let res = dwarf_isbitfield(die, &mut size as *mut Dwarf_Bool, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_isbitfield");
+        }
+    }
+    size
+}
+
+fn my_dwarf_bitsize(die: Dwarf_Die) -> Dwarf_Unsigned {
+    let mut size: Dwarf_Unsigned = 0;
+    unsafe {
+        let res = dwarf_bitsize(die, &mut size as *mut Dwarf_Unsigned, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in my_dwarf_bitsize");
+        }
+    }
+    size
+}
+fn my_dwarf_bitoffset(die: Dwarf_Die) -> Dwarf_Unsigned {
+    let mut size: Dwarf_Unsigned = 0;
+    unsafe {
+        let res = dwarf_bitoffset(die, &mut size as *mut Dwarf_Unsigned, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_bitoffset");
+        }
+    }
+    size
+}
+fn my_dwarf_srclang(die: Dwarf_Die) -> Dwarf_Unsigned {
+    let mut size: Dwarf_Unsigned = 0;
+    unsafe {
+        let res = dwarf_bitsize(die, &mut size as *mut Dwarf_Unsigned, dwarf_error());
+        if (res == DW_DLV_ERROR) {
+            panic!("Error in dwarf_srclang");
+        }
+    }
+    size
+}
+
 
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
@@ -128,8 +184,6 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
 
 fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
     let mut cur_die = in_die;
-    let error = dwarf_error();
-    let mut res = DW_DLV_ERROR;
     print_die_data(dbg, in_die, in_level);
 
     while true {
@@ -144,7 +198,6 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
                 Some(v) => { sib_die = v }
                 None => break
             }
-            // res == DW_DLV_OK
             if (cur_die != in_die) {
                 dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
             }
