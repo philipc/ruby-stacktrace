@@ -20,5 +20,7 @@ fn my_%s(arg: %s) -> %s {
     }
     ret
 }
+
+
 """ % (function, in_type, out_type, out_type_real, function, out_type, function)
 

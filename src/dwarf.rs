@@ -180,6 +180,19 @@ fn my_dwarf_formstring(attr: Dwarf_Attribute) -> Option<*mut c_char> {
     Some(name)
 }
 
+
+fn my_dwarf_whatform(arg: Dwarf_Attribute) -> Dwarf_Half {
+    let mut ret : Dwarf_Half = 0;
+    unsafe {
+        let res = dwarf_whatform(arg, &mut ret as *mut Dwarf_Half, dwarf_error());
+        if (res != DW_DLV_OK) {
+            panic!("Error in dwarf_whatform");
+        }
+    }
+    ret
+}
+
+
 fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
     unsafe {
         let name = match my_dwarf_diename(print_me) {
