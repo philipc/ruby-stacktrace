@@ -336,7 +336,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
         let tag = my_dwarf_tag(print_me);
         let tagname = CStr::from_ptr(my_dwarf_get_TAG_name(tag));
         indent(level);
-        println!("{}: {:?} | size: {} | tag: {:?} {:?}",
+        println!("{:x}: {:?} | size: {} | tag: {:?} {:?}",
                     offset,
                  name,
                  size,
@@ -345,12 +345,12 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
 
         let attributes = my_dwarf_attrlist(print_me);
         for attr in attributes {
-            //println!("what form: {:?}", CStr::from_ptr(my_dwarf_get_FORM_name(my_dwarf_whatform(attr) as c_uint)));
+            // println!("what form: {:?}", CStr::from_ptr(my_dwarf_get_FORM_name(my_dwarf_whatform(attr) as c_uint)));
             let whatattr = my_dwarf_whatattr(attr) as c_uint;
             let at_name = CStr::from_ptr(my_dwarf_get_AT_name(whatattr));
             if at_name.to_str().unwrap() == "DW_AT_type" {
                 // this is the identifier for the type of the thing!!!!!!
-                println!("    ref: {}", my_dwarf_formref(attr));
+                println!("    what type: {:x}", my_dwarf_formref(attr));
             } /*
             println!("attribute: {:?} {:?}", whatattr, at_name);
             match my_dwarf_formstring(attr) {
@@ -407,6 +407,7 @@ fn my_dwarf_siblings(dbg: Dwarf_Debug, node: Dwarf_Die) -> Vec<Dwarf_Die> {
 #[derive(Debug)]
 struct Entry<'a> {
     children: Vec<Entry<'a>>,
+    id: usize,
     type_id: usize,
     size: usize,
     name: &'a str,
@@ -427,6 +428,7 @@ fn index_dwarf_data(dbg: Dwarf_Debug, die: Dwarf_Die) -> Entry<'static> {
     let tagname = unsafe {CStr::from_ptr(my_dwarf_get_TAG_name(tag)).to_str().unwrap()};
     Entry {
         children: children,
+        id: 0,
         type_id: 0,
         size: my_dwarf_bytesize(die) as usize,
         name: tagname,
