@@ -1,5 +1,6 @@
 #![warn(unused_parens)]
 
+use std::collections::HashMap;
 use std::os::unix::prelude::*;
 use std::fs::File;
 use std::os::raw::c_char;
@@ -66,8 +67,10 @@ fn my_dwarf_attrlist(die: Dwarf_Die) -> Vec<Dwarf_Attribute> {
             &mut length as *mut Dwarf_Signed, dwarf_error());
         let slice = from_raw_parts(attrlist, length as usize);
         vec.extend_from_slice(slice);
-        if (res != DW_DLV_OK) {
-            panic!("Error in dwarf_attrlist");
+        match res {
+            DW_DLV_NO_ENTRY => return vec!(),
+            DW_DLV_OK => {},
+            _ => panic!("Error in dwarf_attrlist"),
         }
     }
     vec
@@ -359,7 +362,7 @@ fn print_die_data(dbg: Dwarf_Debug, print_me: Dwarf_Die, level: u32) {
             };
             */
         }
-        dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
+        //dwarf_dealloc(dbg,name.as_ptr() as *mut c_void,DW_DLA_STRING);
     }
 }
 
@@ -380,7 +383,7 @@ fn get_die_and_siblings(dbg: Dwarf_Debug, in_die: Dwarf_Die, in_level: u32) {
                 None => break
             }
             if (cur_die != in_die) {
-                dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
+                //dwarf_dealloc(dbg,cur_die as *mut c_void,DW_DLA_DIE);
             }
             cur_die = sib_die;
         }
@@ -404,13 +407,42 @@ fn my_dwarf_siblings(dbg: Dwarf_Debug, node: Dwarf_Die) -> Vec<Dwarf_Die> {
     siblings
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Entry<'a> {
     children: Vec<Entry<'a>>,
     id: usize,
-    type_id: usize,
+    type_id: Option<usize>,
     size: usize,
-    name: &'a str,
+    name: Option<&'a str>,
+    tagname: &'a str,
+}
+
+fn get_node_type(die: Dwarf_Die) -> Option<usize> {
+    unsafe {
+        let attributes = my_dwarf_attrlist(die);
+        for attr in attributes {
+            let whatattr = my_dwarf_whatattr(attr) as c_uint;
+            let at_name = CStr::from_ptr(my_dwarf_get_AT_name(whatattr));
+            if at_name.to_str().unwrap() == "DW_AT_type" {
+                return Some(my_dwarf_formref(attr) as usize);
+            } 
+        }
+        None
+    }
+}
+
+fn get_node_name(die: Dwarf_Die) -> Option<*mut c_char> {
+    unsafe {
+        let attributes = my_dwarf_attrlist(die);
+        for attr in attributes {
+            let whatattr = my_dwarf_whatattr(attr) as c_uint;
+            let at_name = CStr::from_ptr(my_dwarf_get_AT_name(whatattr));
+            if at_name.to_str().unwrap() == "DW_AT_name" {
+                return my_dwarf_formstring(attr);
+            } 
+        }
+        None
+    }
 }
 
 fn index_dwarf_data(dbg: Dwarf_Debug, die: Dwarf_Die) -> Entry<'static> {
@@ -426,12 +458,17 @@ fn index_dwarf_data(dbg: Dwarf_Debug, die: Dwarf_Die) -> Entry<'static> {
     }
     let tag = my_dwarf_tag(die);
     let tagname = unsafe {CStr::from_ptr(my_dwarf_get_TAG_name(tag)).to_str().unwrap()};
+    let name = match get_node_name(die) {
+        Some(s) => unsafe { Some(CStr::from_ptr(s).to_str().unwrap()) } ,
+        None => None
+    };
     Entry {
         children: children,
-        id: 0,
-        type_id: 0,
+        id: my_dwarf_die_CU_offset(die) as usize,
+        type_id: get_node_type(die),
         size: my_dwarf_bytesize(die) as usize,
-        name: tagname,
+        tagname: tagname,
+        name: name
     }
 }
 
@@ -442,6 +479,8 @@ fn read_cu_list(dbg: Dwarf_Debug) {
     let mut address_size: Dwarf_Half = 0;
     let mut next_cu_header: Dwarf_Unsigned = 0;
     let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
+    let mut root_entries = vec![];
+    let mut lookup_table = HashMap::new();
 
     let i = 0;
     while true {
@@ -461,7 +500,7 @@ fn read_cu_list(dbg: Dwarf_Debug) {
             }
             if res == DW_DLV_NO_ENTRY {
                 println!("done");
-                return;
+                break;
             }
             println!("{}, {}, {}", cu_header_length, address_size, next_cu_header);
             let cu_die = match my_dwarf_sibling_of(dbg, no_die) {
@@ -470,11 +509,22 @@ fn read_cu_list(dbg: Dwarf_Debug) {
             };
             
             get_die_and_siblings(dbg, cu_die, 0);
-            println!("{:?}", index_dwarf_data(dbg, cu_die))
+            root_entries.push(index_dwarf_data(dbg, cu_die));
         }
     }
+    for root_entry in root_entries.iter() {
+        index_entry(&mut lookup_table, root_entry);
+    }
+
+    println!("lookup: {:?}", lookup_table.get(&0x3c));
 }
 
+fn index_entry<'a, 'b>(lookup_table: &mut HashMap<usize, &'b Entry<'a>>, entry: &'b Entry<'a>) {
+    lookup_table.insert(entry.id, entry);
+    for child in entry.children.iter() {
+        index_entry(lookup_table, child);
+    }
+}
 
 
 pub fn do_everything() {
