@@ -481,6 +481,7 @@ fn read_cu_list(dbg: Dwarf_Debug) {
     let mut error: Dwarf_Error = ptr::null::<Struct_Dwarf_Error_s>() as Dwarf_Error;
     let mut root_entries = vec![];
     let mut lookup_table = HashMap::new();
+    let mut name_lookup = HashMap::new();
 
     let i = 0;
     while true {
@@ -514,15 +515,27 @@ fn read_cu_list(dbg: Dwarf_Debug) {
     }
     for root_entry in root_entries.iter() {
         index_entry(&mut lookup_table, root_entry);
+        index_name(&mut name_lookup, root_entry);
     }
 
     println!("lookup: {:?}", lookup_table.get(&0x3c));
+    let rb_thread_t = name_lookup.get("rb_thread_t");
+    println!("lookup name: {:?} {:?}", rb_thread_t, rb_thread_t.map(|x| lookup_table.get(x)));
 }
 
 fn index_entry<'a, 'b>(lookup_table: &mut HashMap<usize, &'b Entry<'a>>, entry: &'b Entry<'a>) {
     lookup_table.insert(entry.id, entry);
     for child in entry.children.iter() {
         index_entry(lookup_table, child);
+    }
+}
+
+fn index_name<'a>(name_lookup: &mut HashMap<&'a str, usize>, entry: &Entry<'a>) {
+    if let Some(name) = entry.name {
+         name_lookup.insert(name, entry.id);
+    }
+    for child in entry.children.iter() {
+        index_name(name_lookup, child);
     }
 }
 
