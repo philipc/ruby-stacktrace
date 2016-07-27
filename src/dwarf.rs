@@ -520,7 +520,7 @@ fn read_cu_list(dbg: Dwarf_Debug) {
 
     println!("lookup: {:?}", lookup_table.get(&0x3c));
     let rb_thread_t = name_lookup.get("rb_thread_struct");
-    println!("lookup name: {:?} {:?}", rb_thread_t, rb_thread_t.map(|x| lookup_table.get(x)));
+    println!("lookup name: {:?} {:#?}", rb_thread_t, rb_thread_t.map(|x| lookup_table.get(x)));
 }
 
 fn index_entry<'a, 'b>(lookup_table: &mut HashMap<usize, &'b Entry<'a>>, entry: &'b Entry<'a>) {
