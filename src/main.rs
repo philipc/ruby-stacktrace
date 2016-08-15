@@ -24,36 +24,6 @@ use std::collections::HashMap;
 
 static mut READ_EVER_SUCCEEDED: bool = false;
 
-fn copy_address_raw(addr: *const c_void, length: usize, pid: pid_t) -> Vec<u8> {
-    if length > 100000 {
-        // something very unusual has happened.
-        // Do not respect requests for huge amounts of memory.
-        return Vec::new();
-    }
-    let mut copy: Vec<u8> = unsafe {
-        let mut vec = Vec::with_capacity(length);
-        vec.set_len(length);
-        vec
-    };
-    let local_iov = iovec {
-        iov_base: copy.as_mut_ptr() as *mut c_void,
-        iov_len: length,
-    };
-    let remote_iov = iovec {
-        iov_base: addr as *mut c_void,
-        iov_len: length,
-    };
-    unsafe {
-        let result = process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0);
-        if result == -1 && !READ_EVER_SUCCEEDED {
-            println!("Failed to read from pid {}. Are you root?", pid);
-            process::exit(1);
-        }
-        READ_EVER_SUCCEEDED = true;
-    }
-    copy
-}
-
 // These three functions (get_cfps, get_iseq, and get_ruby_string) are the
 // core of how the program works. They're essentially a straight port of
 // this gdb script:
@@ -177,38 +147,92 @@ fn get_size(lookup_table: &DwarfLookup, entry: &Entry) -> Option<usize> {
     return current_entry.byte_size
 }
 
-unsafe fn copy_address_dynamic<'a>(
-        addr: *const c_void, lookup_table: &DwarfLookup,
-        pid: pid_t, dwarf_type: &Entry) -> HashMap<String, Vec<u8>> {
-    let size = dwarf_type.byte_size.unwrap() + 200; // todo: is a hack
-    let bytes = copy_address_raw(addr as *mut c_void, size, pid);
-    map_bytes_to_struct(&bytes, lookup_table, dwarf_type)
+
+
+struct FieldAccess<'a> {
+    types: DwarfTypes,
+    lookup_table: DwarfLookup<'a>,
+    pid: pid_t,
 }
 
-fn map_bytes_to_struct<'a>(
-        bytes: &Vec<u8>,
-        lookup_table: &DwarfLookup,
-        dwarf_type: &Entry) -> HashMap<String, Vec<u8>> {
-    // println!("{:#?}", dwarf_type);
-    let mut struct_map = HashMap::new();
-    for entry in dwarf_type.children.iter() {
-        match get_size(&lookup_table, entry) {
-            None => break,
-            Some(size) => {
-                let name = entry.name.clone().unwrap_or("unknownnnn".to_string());
-                let offset = entry.offset.unwrap() as usize;
-                let b = bytes[offset..offset + size].to_vec();
-                struct_map.insert(name, b);
+impl<'b> FieldAccess<'b> {
+
+    pub fn copy_address_raw(&self, addr: *const c_void, length: usize) -> Vec<u8> {
+        if length > 100000 {
+            // something very unusual has happened.
+            // Do not respect requests for huge amounts of memory.
+            return Vec::new();
+        }
+        let mut copy: Vec<u8> = unsafe {
+            let mut vec = Vec::with_capacity(length);
+            vec.set_len(length);
+            vec
+        };
+        let local_iov = iovec {
+            iov_base: copy.as_mut_ptr() as *mut c_void,
+            iov_len: length,
+        };
+        let remote_iov = iovec {
+            iov_base: addr as *mut c_void,
+            iov_len: length,
+        };
+        unsafe {
+            let result = process_vm_readv(self.pid, &local_iov, 1, &remote_iov, 1, 0);
+            if result == -1 && !READ_EVER_SUCCEEDED {
+                println!("Failed to read from pid {}. Are you root?", self.pid);
+                process::exit(1);
             }
+            READ_EVER_SUCCEEDED = true;
+        }
+        copy
+    }
+
+    pub fn field_from_addr_option<'a>(
+        &self, addr: *const c_void,
+        dwarf_type: &'a Entry, name: &str)-> Option<&'a [u8]> {
+        unsafe {
+            let size = dwarf_type.byte_size.unwrap() + 20;
+            let bytes = self.copy_address_raw(addr as *mut c_void, size);
+            self.field_from_bytes_option(&bytes, dwarf_type, name)
         }
     }
-    struct_map
 
-}
+    pub fn field_from_addr<'a>(
+        &self, addr: *const c_void,
+        dwarf_type: &'a Entry, name: &str)-> &'a [u8] {
+        self.field_from_addr_option(addr, dwarf_type, name).unwrap()
+    }
 
-fn read_pointer_address(vec: &Vec<u8>) -> u64 {
+    pub fn field_from_bytes<'a>(
+        &self, bytes: &'a [u8],
+        dwarf_type: &Entry,
+        name: &str) -> &'a [u8] {
+        self.field_from_bytes_option(bytes, dwarf_type, name).unwrap()
+    }
+
+    pub fn field_from_bytes_option<'a>(
+        &self, bytes: &'a [u8],
+        dwarf_type: &Entry,
+        name: &str) -> Option<&'a [u8]> {
+        for entry in dwarf_type.children.iter() {
+            if entry.name.map(|x| x.as_str()) == Some(name) {
+                match get_size(&self.lookup_table, entry) {
+                    None => break,
+                    Some(size) => {
+                        let name = entry.name.clone().unwrap_or("unknownnnn".to_string());
+                        let offset = entry.offset.unwrap() as usize;
+                        return Some(&bytes[offset..offset + size])
+                    }
+                }
+            }
+        }
+        None
+    }
+} 
+
+fn read_pointer_address(vec: &[u8]) -> u64 {
     let mut rdr = Cursor::new(vec);
-    rdr.read_u64::<NativeEndian>().unwrap()
+    rdr.read_uint::<NativeEndian>(vec.len()).unwrap() as u64
 }
 
 fn get_child<'a>(entry: &'a Entry, name: &'a str) -> Option<&'a Entry>{
@@ -220,28 +244,20 @@ fn get_child<'a>(entry: &'a Entry, name: &'a str) -> Option<&'a Entry>{
     None
 }
 
-fn get_ruby_string2(addr: u64, pid: pid_t, lookup_table: &DwarfLookup, types: &DwarfTypes) -> OsString {
+fn get_ruby_string(addr: u64, lookup: &FieldAccess, types: &DwarfTypes) -> OsString {
      let vec = unsafe {
-        let rstring = copy_address_dynamic(addr as *const c_void, lookup_table, pid, &types.rstring);
-        let basic =  map_bytes_to_struct(&rstring["basic"], lookup_table, &types.rbasic);
-        let is_array = (read_pointer_address(&basic["flags"]) & 1 << 13) == 0;
+        let basic_bytes = lookup.field_from_addr(addr as *const c_void, &types.rstring, "basic");
+        let flags =  lookup.field_from_bytes(basic_bytes, &types.rbasic, "flags");
+        let as_bytes = lookup.field_from_addr(addr as *const c_void, &types.rstring, "as_bytes");
+        let is_array = (read_pointer_address(&flags) & 1 << 13) == 0;
         if is_array  {
-           // println!("it's an array!!!!");
-           // println!("rstring {:#?}", rstring);
-           CStr::from_ptr(rstring["as"].as_ptr() as *const i8).to_bytes().to_vec()
+           CStr::from_ptr(as_bytes.as_ptr() as *const i8).to_bytes().to_vec()
         } else {
-            let entry = &types.rstring;
-                // println!("entry: {:?}", entry);
-            let as_type = get_child(&entry, "as").unwrap();
-            let blah = lookup_table.lookup_entry(as_type).unwrap();
-            // println!("blah: {:?}", blah);
-            let heap_type = get_child(&blah, "heap").unwrap();
-            let blah2 = lookup_table.lookup_entry(heap_type).unwrap();
-            let hashmap = map_bytes_to_struct(&rstring["as"], lookup_table, blah2);
-            copy_address_raw(
-                read_pointer_address(&hashmap["ptr"]) as *const c_void,
-                read_pointer_address(&hashmap["len"]) as usize,
-                pid)
+            let ptr = lookup.field_from_bytes(&as_bytes, &types.heap_struct, "ptr");
+            let len = lookup.field_from_bytes(&as_bytes, &types.heap_struct, "len");
+            lookup.copy_address_raw(
+                read_pointer_address(&ptr) as *const c_void,
+                read_pointer_address(&len) as usize)
         }
     };
     OsString::from_vec(vec)   
@@ -250,6 +266,7 @@ fn get_ruby_string2(addr: u64, pid: pid_t, lookup_table: &DwarfLookup, types: &D
 struct DwarfTypes {
     rbasic: Entry,
     rstring: Entry,
+    heap_struct: Entry,
     rb_thread_struct: Entry,
     rb_iseq_constant_body: Option<Entry>,
     rb_iseq_location_struct: Entry,
@@ -257,10 +274,17 @@ struct DwarfTypes {
     rb_control_frame_struct: Entry,
 }
 
+
 fn get_types(lookup_table: &DwarfLookup) -> DwarfTypes {
+    let rstring = lookup_table.lookup_thing("RString").unwrap().clone();
+    let as_type = get_child(&rstring, "as").unwrap();
+    let as_type_entry = lookup_table.lookup_entry(as_type).unwrap();
+    let heap_type = get_child(&as_type_entry, "heap").unwrap();
+    let heap_type_entry = lookup_table.lookup_entry(heap_type).unwrap().clone();
     DwarfTypes {
         rbasic: lookup_table.lookup_thing("RBasic").unwrap().clone(),
-        rstring: lookup_table.lookup_thing("RString").unwrap().clone(),
+        rstring: rstring,
+        heap_struct: heap_type_entry,
         rb_thread_struct: lookup_table.lookup_thing("rb_thread_struct").unwrap().clone(),
         rb_iseq_constant_body: lookup_table.lookup_thing("rb_iseq_constant_body").map(|x| x.clone()),
         rb_iseq_location_struct: lookup_table.lookup_thing("rb_iseq_location_struct").unwrap().clone(),
@@ -269,29 +293,30 @@ fn get_types(lookup_table: &DwarfLookup) -> DwarfTypes {
     }
 }
 
-unsafe fn get_label_and_path(cfp_bytes: &Vec<u8>, pid: pid_t, lookup_table: &DwarfLookup, types: &DwarfTypes) -> Option<(OsString, OsString)> {
-    let blah2 = map_bytes_to_struct(&cfp_bytes, &lookup_table, &types.rb_control_frame_struct);
-    // println!("{:?}", blah2);
-    let iseq_address = read_pointer_address(&blah2["iseq"]);
-    let blah3 = copy_address_dynamic(iseq_address as *const c_void, &lookup_table, pid, &types.rb_iseq_struct);
-    let location = if blah3.contains_key("location") {
-        map_bytes_to_struct(&blah3["location"], &lookup_table, &types.rb_iseq_location_struct)
-    } else if blah3.contains_key("body") {
-        let body = read_pointer_address(&blah3["body"]);
+fn get_location_bytes(cfp_bytes: &Vec<u8>, lookup: &FieldAccess, types: &DwarfTypes) -> Vec<u8> {
+    let iseq_bytes = lookup.field_from_bytes(&cfp_bytes, &types.rb_control_frame_struct, "iseq");
+    let iseq_address = read_pointer_address(&iseq_bytes);
+    let location_bytes = lookup.field_from_addr_option(iseq_address as *const c_void, &types.rb_iseq_struct, "location");
+    if let Some(location) = location_bytes {
+        return location.to_vec();
+    } else {
+        let body_bytes = lookup.field_from_addr(iseq_address as *const c_void, &types.rb_iseq_struct, "body");
+        let body_address = read_pointer_address(&body_bytes);
         match types.rb_iseq_constant_body {
             Some(ref constant_body_type) => {
-                let blah4 = copy_address_dynamic(body as *const c_void, &lookup_table, pid, &constant_body_type);
-                map_bytes_to_struct(&blah4["location"], &lookup_table, &types.rb_iseq_location_struct)
+                return lookup.field_from_addr(body_address as *const c_void, &constant_body_type, "location").to_vec();
             }
             None => panic!("rb_iseq_constant_body shouldn't be missing"),
         }
-    } else {
-        panic!("DON'T KNOW WHERE LOCATION IS");
-    };
-    let label_address = read_pointer_address(&location["label"]);
-    let path_address = read_pointer_address(&location["path"]);
-    let label = get_ruby_string2(label_address, pid, lookup_table, types);
-    let path = get_ruby_string2(path_address, pid, lookup_table, types);
+    }
+}
+
+fn get_label_and_path(cfp_bytes: &Vec<u8>, lookup: &FieldAccess, types: &DwarfTypes) -> Option<(OsString, OsString)> {
+    let location_bytes = &get_location_bytes(cfp_bytes, lookup, types)[0..];
+    let label_address = read_pointer_address(lookup.field_from_bytes(location_bytes, &types.rb_iseq_location_struct, "label"));
+    let path_address = read_pointer_address(lookup.field_from_bytes(location_bytes, &types.rb_iseq_location_struct, "path"));
+    let label = get_ruby_string(label_address, lookup, types);
+    let path = get_ruby_string(path_address, lookup, types);
     if path.to_string_lossy() == "" {
         return None;
     }
@@ -300,23 +325,20 @@ unsafe fn get_label_and_path(cfp_bytes: &Vec<u8>, pid: pid_t, lookup_table: &Dwa
     Some((label, path))
 }
 
-unsafe fn get_cfps(ruby_current_thread_address_location: u64, pid: pid_t, lookup_table: &DwarfLookup, types: &DwarfTypes) -> (Vec<u8>, usize) {
-    let ruby_current_thread_address: u64 = read_pointer_address(&copy_address_raw(ruby_current_thread_address_location as *const c_void, 8, pid));
-    let blah = copy_address_dynamic(ruby_current_thread_address as *const c_void, &lookup_table, pid, &types.rb_thread_struct);
-    // println!("{:?}", blah);
-    let cfp_address = read_pointer_address(&blah["cfp"]);
+fn get_cfps(ruby_current_thread_address_location: u64, lookup: &FieldAccess, types: &DwarfTypes) -> (Vec<u8>, usize) {
+    let ruby_current_thread_address: u64 = read_pointer_address(&lookup.copy_address_raw(ruby_current_thread_address_location as *const c_void, 8));
+    let cfp_address = lookup.field_from_addr(ruby_current_thread_address as *const c_void, &types.rb_thread_struct, "cfp");
+    let cfp_address = read_pointer_address(&cfp_address);
     let ref cfp_struct = types.rb_control_frame_struct;
     let cfp_size = cfp_struct.byte_size.unwrap();
-    (copy_address_raw(cfp_address as *const c_void, cfp_size * 100, pid), cfp_size)
+    (lookup.copy_address_raw(cfp_address as *const c_void, cfp_size * 100), cfp_size)
 }
 
-fn get_stack_trace(ruby_current_thread_address_location: u64, pid: pid_t, lookup_table: &DwarfLookup, types: &DwarfTypes) -> Vec<String> {
-    unsafe {
-
-    let (cfp_bytes, cfp_size) = get_cfps(ruby_current_thread_address_location, pid, lookup_table, types);
+fn get_stack_trace(ruby_current_thread_address_location: u64, lookup: &FieldAccess, types: &DwarfTypes) -> Vec<String> {
+    let (cfp_bytes, cfp_size) = get_cfps(ruby_current_thread_address_location, lookup, types);
     let mut trace: Vec<String> = Vec::new();
     for i in 0..100 {
-        match get_label_and_path(&cfp_bytes[(cfp_size*i)..].to_vec(), pid, lookup_table, types) {
+        match get_label_and_path(&cfp_bytes[(cfp_size*i)..].to_vec(), lookup, types) {
             None => continue,
             Some((label, path)) => {
                 let current_location = 
@@ -329,7 +351,6 @@ fn get_stack_trace(ruby_current_thread_address_location: u64, pid: pid_t, lookup
         }
     }
     trace
-    }
 }
 
 fn main() {
@@ -341,10 +362,14 @@ fn main() {
         process::exit(1);
     }
 
-
     let entries = get_dwarf_entries(pid as usize);
     let lookup_table = create_lookup_table(&entries);
     let types = get_types(&lookup_table);
+    let lookup = FieldAccess{
+        pid: pid,
+        lookup_table: lookup_table,
+        types: types,
+    };
 
     let ruby_current_thread_address_location: u64 = get_ruby_current_thread_address(pid);
 
@@ -354,7 +379,7 @@ fn main() {
         // This gets a stack trace and then just prints it out
         // in a format that Brendan Gregg's stackcollapse.pl script understands
         loop {
-            let trace = get_stack_trace(ruby_current_thread_address_location, pid, &lookup_table, &types);
+            let trace = get_stack_trace(ruby_current_thread_address_location, &lookup, &types);
             print_stack_trace(&trace);
             thread::sleep(Duration::from_millis(10));
         }
@@ -367,7 +392,7 @@ fn main() {
         let mut j = 0;
         loop {
             j += 1;
-            let trace = get_stack_trace(ruby_current_thread_address_location, pid, &lookup_table, &types);
+            let trace = get_stack_trace(ruby_current_thread_address_location, &lookup, &types);
             for item in &trace {
                 let counter = method_stats.entry(item.clone()).or_insert(0);
                 *counter += 1;
