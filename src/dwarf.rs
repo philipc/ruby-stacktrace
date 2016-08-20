@@ -103,12 +103,16 @@ where Endian: gimli::Endianity
     None
 }
 
-fn get_entry_list<Endian>(mut entries: gimli::EntriesCursor<Endian>, group_id: u32, debug_str: gimli::DebugStr<Endian>) -> Vec<(isize, Entry)>
+fn get_entry_tree<Endian>(entries: &mut gimli::EntriesCursor<Endian>, group_id: u32, debug_str: gimli::DebugStr<Endian>) -> Option<Entry>
     where Endian: gimli::Endianity
 { 
-    let mut vec: Vec<(isize, Entry)> = Vec::new();
-    while let Some((delta_depth, die)) = entries.next_dfs().expect("Should parse next dfs") {
-        let entry = Entry {
+    entries.next_entry().expect("Should parse next entry").expect("Should have an entry");
+    if entries.current().is_none() {
+        return None;
+    }
+    let mut entry = {
+        let die = entries.current().unwrap();
+        Entry {
             children: vec!(),
             id: die.offset(),
             type_id: get_attr_type(die),
@@ -117,10 +121,14 @@ fn get_entry_list<Endian>(mut entries: gimli::EntriesCursor<Endian>, group_id: u
             name: get_attr_name(die, debug_str),
             offset: get_data_member_location(die),
             group_id: group_id,
-        };
-        vec.push((delta_depth, entry));
+        }
+    };
+    if entries.current().unwrap().has_children() {
+        while let Some(child) = get_entry_tree(entries, group_id, debug_str) {
+            entry.children.push(child);
+        }
     }
-    vec
+    Some(entry)
 }
 
 #[derive(Debug, Clone)]
@@ -177,57 +185,6 @@ pub fn create_lookup_table(root_entries: &Vec<Entry>) -> DwarfLookup {
     }
 }
 
-fn get_siblings (vec: &[(isize, Entry)]) -> Vec<usize> {
-    let depth = vec[0].0;
-    let mut sibs = vec!();
-    let mut cum_depth = 0;
-    for (i, &(d, _)) in vec.iter().enumerate() {
-        cum_depth += d;
-        if cum_depth < depth {
-            break;
-        }
-        if depth == cum_depth {
-            sibs.push(i)
-        }
-    }
-    sibs
-
-}
-
-fn get_child (vec: &[(isize, Entry)]) -> Option<&Entry> {
-    let ref second = vec[1];
-    if second.0 == 1 {
-        Some(&second.1)
-    } else {
-        None
-    }
-}
-
-// returns vec[0] with children set to that thing's children
-fn make_into_tree(vec: &[(isize, Entry)]) -> Entry {
-    // println!("it's me {}", vec.len());
-    let children = if vec.len() == 1 {
-        vec!()
-    }
-    else {
-        match get_child(&vec) {
-            None => vec!(),
-            Some(_) => {
-                let mut ch = vec!();
-                let sibs = get_siblings(&vec[1..]);
-                for i in sibs {
-                    ch.push(make_into_tree(&vec[i + 1..]))
-                }
-                ch
-            }
-        }
-    };
-    let mut cl = vec[0].1.clone();
-    cl.children = children;
-    cl
-}
-
-
 pub fn get_all_entries<Endian>(debug_info: &[u8],
                            debug_abbrev: &[u8],
                            debug_str: &[u8]) -> Vec<Entry>
@@ -245,10 +202,10 @@ pub fn get_all_entries<Endian>(debug_info: &[u8],
 
        let abbrevs = unit.abbreviations(debug_abbrev)
           .expect("Error parsing abbreviations");
-       let vec = get_entry_list(unit.entries(&abbrevs), group_id, debug_str);
-       let entry = make_into_tree(vec.as_slice());
+       let mut entries = unit.entries(&abbrevs);
+       let entry = get_entry_tree(&mut entries, group_id, debug_str);
        // println!("{:#?}", entry);
-       root_entries.push(entry);
+       root_entries.push(entry.expect("Should have an entry"));
     }
     root_entries
 }
